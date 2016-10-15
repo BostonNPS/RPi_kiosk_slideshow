@@ -103,7 +103,7 @@ app.get('/usb/:name', function (req, res) {
 app.get('/index.html', function (req, res) {
 	request(currentSlideURL, function (error, response, body) {
 		if (!error && response.statusCode == 200) {
-			res.sendFile("slide_manager.html")
+			res.sendFile("slide_manager.html", {root: __dirname})
   		}
 	});
 });
