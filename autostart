@@ -1,8 +1,8 @@
 #!/bin/bash
 cd /home/pi/RPi_kiosk_slideshow/
-export THOUGHT_ADMIN_USER=kiosk
-export THOUGHT_ADMIN_PASS=slideshow
-node app.js &
+export SLIDE_ADMIN_USER=kiosk
+export SLIDE_ADMIN_PASS=slideshow
+sudo node app.js &
 sleep 30
 chromium-browser --kiosk --incognito http://localhost &
 xset -dpms # disable DPMS (Energy Star) features.

@@ -156,7 +156,7 @@
 			
 			//Thanks to user "qwerty" on stackoverflow for a basic and compact auth comparison algorithm solution
 			
-			var auth = {login:'x',password:'x'}
+			var auth = {login:"kiosk",password:"slideshow"}
 			console.log(auth.login + " " + auth.password)
 			var b64auth = (req.headers.authorization || '').split(' ')[1] || '';
 			var login = new Buffer(b64auth, "base64").toString().split(':')[0];
@@ -217,7 +217,7 @@
 			var submitObj = req.body;
 			switch(submitObj.content_type) {
 				case "Web":
-					submitObj.content = req.body.content-url;
+					submitObj.content = req.body['content-url'];
 					break;
 				case "Image":
 					submitObj.content = req.files['content-image'][0].path;
@@ -234,7 +234,7 @@
 			var submitObj = req.body;
 			switch(submitObj.content_type) {
 				case "Web":
-					submitObj.content = req.body.content-url;
+					submitObj.content = req.body['content-url'];
 					break;
 				case "Image":
 					submitObj.content = req.files['content-image'][0].path;
