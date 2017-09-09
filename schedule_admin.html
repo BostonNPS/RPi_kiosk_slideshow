@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html><head>
+<title>Slideshow Admin</title>
+<link rel="stylesheet" type="text/css" href="/gstatic-add-ons1.css">
+
+<link rel="stylesheet" type="text/css" href="/jquery.timepicker.min.css">
+<style>
+body{
+font-size:1em;
+}
+.content{
+width:75%;
+margin-left: auto;
+margin-right: auto;
+padding:1em;
+}
+#description {
+width:100%;
+max-width:800px;
+}
+#title {
+width:100%;
+max-width:800px;
+height:35px;
+}
+#locationSelect {
+font-size:1em;
+padding-right: 3em;
+height:2em;
+}
+input[type="file"] {
+    display: none;
+}
+.upload {
+    cursor: pointer;
+	padding-left:1em;
+	padding-right:1em;
+	margin-right:1em;
+}
+#uploadFileDir {
+font-style:italic;
+}
+sub {
+font-size:x-small;
+}
+.slideListItem{
+cursor:pointer;
+}
+.slideListItem:nth-child(even){
+background-color:lightgoldenrodyellow;
+}
+.slideSortables{
+border: 1px solid black;
+}
+input:disabled {
+    background: #dddddd;
+}
+</style>
+<script src="/jquery-3.1.1.min.js"></script>
+<script src="/jquery.timepicker.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="/rrule/lib/rrule.js"></script>
+<script src="/rrule/lib/nlp.js"></script>
+</head>
+<body>
+<form enctype="multipart/form-data" id="eventForm" class="content">
+<h1>Slideshow Schedule Admin Page</h1>
+<hr>
+<h2>Slideshow Name: <input type="text" name="name" id="name"></h2>
+<h3>Beginning date (default is now): <input type="date" class="dateTimeInputs" id="beginDate"></h3>
+<h3>Time: <input type="time" id="time" class="dateTimeInputs"></h3>
+<h3>and continues:
+<p><input type="radio" name="validity" value="permanent" checked>Forever <input type="radio" name="validity" value="once">Once
+<input type="radio" name="validity" value="dates">Until: <input class="dateTimeInputs" type="date" id="untilDate" disabled>
+<p>
+<h3>Recurrence of slideshow:</h3>
+<div id="repeating" style="margin:1em;padding-left:.5em;border-left:1px solid black;">
+	<input type="hidden" id="startDateTime" name="start"></h3>
+	<input type="hidden" id="endDateTime" name="end"></h3>
+  <p>
+				Event repeats every <input type="number" value="1" min="1" id="interval" name="interval" onchange="setFreq(this.value)">
+			<select name="freq" id="freq" onchange="setFreqOpts(this.value)">
+				<option value="4">Hour</option>
+				<option value="3" selected>Day</option>
+				<option value="2">Week</option>
+                <option value="1">Month</option>
+                <option value="0">Year</option>
+			</select>
+			</p>
+			<p id="weekly" style="display:none;">
+			on a  <label><input type="checkbox" name="byweekday" value="6">Sunday</label>
+				<label><input type="checkbox" name="byweekday" value="0">Monday</label>
+                <label><input type="checkbox" name="byweekday" value="1">Tuesday</label>
+                <label><input type="checkbox" name="byweekday" value="2">Wednesday</label>
+                <label><input type="checkbox" name="byweekday" value="3">Thursday</label>
+                <label><input type="checkbox" name="byweekday" value="4">Friday</label>
+                <label><input type="checkbox" name="byweekday" value="5">Saturday</label>
+            </p>
+			<p id="monthly" style="display:none;">
+				on the <input name="bymonthday"> day(s) of the month
+				or on the <input name="byweekno"> week(s) of the month
+			</p>
+			<p>Explicit dates to <em>Exclude</em>:<br>
+				<input type="date" id="exclude"><button onclick="addExclusion()" type="button">Add...</button>
+				<ul id="exclusions"></ul>
+			</p>
+			<p>Explicit dates to <em>Include</em>:<br>
+				<input type="date" id="include"><button onclick="addInclusion()" type="button">Add...</button>
+				<ul id="inclusions"></ul>
+			</p>
+		<input type="text" name="rule_string" id="rule_string" style="width:100%;max-width:800px;" readonly>
+		</div>
+<div>
+<span style="width:49%;display:inline-block;vertical-align:top;">Available Slides:
+<ul id="availableSlides" class="slideSortables"></ul></span>
+<span style="width:49%;display:inline-block;vertical-align:top;">Selected Slides:
+<ol id="selectedSlides" class="slideSortables"></ol>
+</span>
+</div>
+<input type="submit">
+</form>
+<script>
+//global vars
+var editing = false;
+var id = '';
+var allSlides = '';
+var currentSchedule = '';
+var exclusions = [];
+var inclusions = [];
+
+//get proper tz iso string - ie -04:00
+Date.prototype.TZISOString = function() {
+		var tzOffset = this.getTimezoneOffset()/60;
+		var tzStr = ""
+		if(tzOffset > 0)
+		{
+			if(tzOffset < 10)
+			{
+				tzStr = "-0" + tzOffset + ":00";
+			}
+			else
+			{
+				tzStr = "-" + tzOffset + ":00";
+			}
+		}
+		else
+		{
+			if(tzOffset < 10)
+			{
+				tzStr = "0" + tzOffset + ":00";
+			}
+			else
+			{
+				tzStr = "" +  tzOffset + ":00";
+			}
+		}
+		return tzStr;
+
+}
+function pad(n) { return ("0" + n).slice(-2); }
+//default date set
+$("#beginDate").val(new Date().toISOString().split("T")[0]);
+//Recurrence part of form - listeners for changes
+$("#repeating").change(function(){figureRRule()});
+$(".dateTimeInputs").change(function(){figureRRule()});
+
+
+
+//function builds rrule and exceptions/inclusions based on form values
+//fired every time something is adjusted in form
+function figureRRule(){
+	var rule = {};
+	
+	if($("#beginDate").val() && $("#time").val())
+	{
+
+		var startDateTime = new Date($("#beginDate").val() + "T" + $("#time").val() + new Date().TZISOString());
+		if(startDateTime != "Invalid Date")
+		{
+			$("#startDateTime").val(startDateTime);
+		}
+	}
+	if($("#untilDate").val())
+	{
+		var endDateTime = new Date($("#untilDate").val())
+		if(endDateTime != "Invalid Date")
+		{
+			$("#endDateTime").val(endDateTime);
+		}
+	}
+	else{
+		$("#endDateTime").val("");
+	}
+	
+	
+	
+	var dtstart = new Date($("input[name=start]").val());
+	var until = new Date($("input[name=end]").val());
+	if(dtstart != "Invalid Date")
+	{
+		rule.dtstart = dtstart;
+	}
+	if(until != "Invalid Date")
+	{
+		rule.until = until;
+	}
+	if($("input[name=validity]:checked").val() == "once")
+	{
+		rule.count = 1;
+	}
+	rule.freq = $("select[name=freq]").val();
+	rule.interval = $("input[name=interval]").val();
+	rule.byweekday = [];
+	var weekdayboxes = document.getElementsByName("byweekday");
+	for(var x = 0; x < weekdayboxes.length; x++)
+	{
+		if(weekdayboxes[x].checked)
+		{
+			rule.byweekday.push(parseInt(weekdayboxes[x].value));
+		}
+	}
+	
+	if($("input[name=byweekno]").val())
+	{
+		rule.byweekno = $("input[name=byweekno]").val();
+	}
+	if($("input[name=bymonthday]").val())
+	{
+		rule.bymonthday = $("input[name=bymonthday]").val();
+	}
+	var rruleSet = new RRuleSet();
+	rruleSet.rrule(new RRule(rule))
+	for(var x = 0; x < exclusions.length; x++)
+	{
+		rruleSet.exdate(exclusions[x]);
+	}
+	for(var x = 0; x < inclusions.length; x++)
+	{
+		rruleSet.rdate(inclusions[x]);
+	}
+	var now = new Date()
+	$("input[name=rule_string]").val(rruleSet.valueOf())
+}
+function setFreqOpts(val) {
+	if(val == "2")
+	{
+		$("#weekly").css("display","block");
+	}
+	else
+	{
+		$("#weekly").css("display","none");
+		var weekdayboxes = document.getElementsByName("byweekday");
+		for(var x = 0; x < weekdayboxes.length; x++)
+		{
+			weekdayboxes[x].checked = false;
+		}
+	}
+	if(val == "1")
+	{
+		$("#monthly").css("display","block");
+	}
+	else
+	{
+		$("#monthly").css("display","none");
+		$("input[name=bymonthday]").val('');
+		$("input[name=byweekno]").val('');
+		
+	}
+	
+}
+function setFreq(val) {
+	if(val == 1)
+	{
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[0].innerText = 'Hour';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[1].innerText = 'Day';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[2].innerText ='Week';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[3].innerText = 'Month';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[4].innerText = 'Year';
+	}
+	else
+	{
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[0].innerText = 'Hours';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[1].innerText = 'Days';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[2].innerText ='Weeks';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[3].innerText = 'Months';
+		document.getElementsByName("freq")[0].getElementsByTagName("option")[4].innerText = 'Years';
+	}
+}
+function addExclusion() {
+	var date = new Date($('#exclude').val())
+	if(date != "Invalid Date")
+	{
+		exclusions.push(date);
+		$("#exclusions").append("<li>" + $('#exclude').val() + "</li>");
+		figureRRule();
+	}
+	$('#exclude').val("")
+}
+function addInclusion() {
+	var date = new Date($('#include').val())
+	if(date != "Invalid Date")
+	{
+		inclusions.push(date);
+		$("#inclusions").append("<li>" + $('#include').val() + "</li>");
+		figureRRule();
+	}
+	$('#include').val("")
+}
+
+
+$('input:radio[name=validity]').on("change",function(event){
+	if(event.target.value == "permanent" || event.target.value == "once")
+	{
+		$('#untilDate').val("").prop("disabled","true");
+		$('#endDateTime').val("");
+		
+	}
+	else
+	{
+		$('#untilDate')[0].disabled = false;
+	}
+	figureRRule();
+});
+
+//if an id argument is presented, we go into editing mode and pull the proper json via ajax
+if(window.location.search.substring(1))
+{
+	paramSplit = window.location.search.substring(1).split("=")
+	if(paramSplit[0] == "id")
+	{
+		editing=true;
+		id = paramSplit[1];
+		$.ajax({
+		url: "/schedule/" + id,
+		success: function(res){
+			console.log(res);
+			currentSchedule = res[0];
+			getSlides();
+			$("#name").val(res[0].name);
+			if(res[0].valid.permanent)
+			{
+				$('input:radio[name=validity][value=permanent]').prop('checked', true)
+			}
+			else
+			{
+				if(res[0].rrule.search("COUNT=1") > -1)
+				{
+					$('input:radio[name=validity][value=once]').prop('checked', true)
+				}
+				else
+				{
+					$('input:radio[name=validity][value=dates]').prop('checked', true)
+					$("#untilDate").val(res[0].valid.end.split("T")[0]);
+					$('#untilDate')[0].disabled = false;
+				}
+			}
+			var rruleSet = rrulestr(new String(res[0].rrule).replace(",","\n"),{forceset: true});
+			var rrule = rruleSet._rrule[0].options;
+			$("#beginDate").val(rrule.dtstart.toISOString().split("T")[0]);
+			$("#time").val(pad(rrule.dtstart.getHours()) + ":" + pad(rrule.dtstart.getMinutes()));
+			$("input[name=rule_string]").val(rruleSet.valueOf());
+			$("input[name=interval]").val(rrule.interval);
+			setFreq(rrule.interval)
+			$("select[name=freq]").val(rrule.freq);
+			setFreqOpts(rrule.freq)
+			if(rrule.byweekday)
+			{
+				for(var x = 0; x < rrule.byweekday.length; x++)
+				{
+					$("input[name=byweekday][value=" + rrule.byweekday[x] + "]").prop("checked",true);
+				}
+			}
+			$("input[name=byweekno]").val(rrule.byweekno);
+			for(var x = 0; x < rrule.bymonthday.length; x++)
+			{
+				$("input[name=bymonthday]").val(rule.bymonthday[x]);
+			}
+			for(var x = 0; x < rruleSet._exdate.length; x++)
+			{
+				$("#exclusions").append("<li>" + rruleSet._exdate[x].toISOString().split("T")[0] + "</li>");
+			}
+			for(var x = 0; x < rruleSet._rdate.length; x++)
+			{
+				$("#inclusions").append("<li>" + rruleSet._rdate[x].toISOString().split("T")[0] + "</li>");
+			}
+			//$("#startDateTime").val(res[0].validity);
+			//$("#duration").val(res[0].duration);
+			//$("#content").val(res[0].content);
+		}
+		})
+	}
+	else
+	{
+	getSlides();
+	}
+}
+	else
+	{
+	getSlides();
+	}
+function getSlides(){
+$.ajax({
+	url: '/slides',
+	success: function (data) {
+		console.log(data);
+		allSlides = data;
+		for(var x = 0; x < data.length; x++)
+		{
+			$("#availableSlides").append("<li class='slideListItem' id='" + data[x]._id + "'>" + data[x].name + "</li>")
+		}
+		if(editing)
+		{
+			for(var y = 0; y < currentSchedule.order.length; y++)
+			{
+				
+				for(var z = 0; z < $("#availableSlides li").length; z++)
+				{
+					if($("#availableSlides li")[z].id == currentSchedule.order[y])
+					{
+					  $("#selectedSlides").append($("#availableSlides li")[z]);
+					}
+				}
+			}
+		}
+		$("#availableSlides, #selectedSlides").sortable({
+			connectWith:".slideSortables"
+		}).disableSelection();
+	},
+	error: function(){
+		alert("error in ajax slides retrieval!");
+	}
+});
+}
+$("#eventForm").submit(function (event) {
+		
+        //disable the default form submission
+        event.preventDefault();
+        //grab all form data  
+        var formData = new FormData(document.getElementById('eventForm'))
+		console.log(formData)
+		//fix things based on responses to conform with collection in mongo
+		var data = {"name":formData.get("name")};
+		switch(formData.get("validity"))
+		{
+			case "dates":
+				data.valid = {"start": new Date(formData.get("start")),"end": new Date(formData.get("end")),"permanent":false};
+				break;
+			case "permanent":
+				data.valid = {"start": new Date(formData.get("start")),"permanent":true};
+				break;
+			case "once":
+				data.valid = {"start": new Date(new Date(formData.get("start")).toISOString().split("T")[0]),"end": new Date(new Date(new Date(formData.get("start")).toISOString().split("T")[0]).getTime() + 86400000),"permanent":false};
+		}
+		var selectedSlides = []
+		$("#selectedSlides li").each(function(){selectedSlides.push(this.id)})
+		data.order = selectedSlides;
+		data.rrule = formData.get("rule_string");
+		jsondata = JSON.stringify(data)
+		console.log(jsondata)
+		if(editing)
+		{
+			$.ajax({
+				url: '/admin/schedule/update/' + id,
+				type: 'POST',
+				data: jsondata,
+				async: true,
+				cache: false,
+				contentType: "application/json",
+				processData: false,
+				success: function (data) {
+					console.log(data);
+					window.location.pathname="/admin";
+				},
+				error: function(){
+					alert("error in form submission");
+				}
+			});
+		}
+		else
+		{
+			$.ajax({
+				url: '/admin/schedule/new',
+				type: 'POST',
+				data: jsondata,
+				async: true,
+				cache: false,
+				contentType: "application/json",
+				processData: false,
+				success: function (data) {
+					console.log(data);
+					window.location.pathname="/admin";
+				},
+				error: function(){
+					alert("error in form submission");
+				}
+			});
+		}
+
+        return false;
+    });
+</script>
+</body>
+</html>

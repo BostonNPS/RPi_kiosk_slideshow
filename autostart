@@ -1,0 +1,12 @@
+#!/bin/bash
+cd /home/pi/RPi_kiosk_slideshow/
+export THOUGHT_ADMIN_USER=kiosk
+export THOUGHT_ADMIN_PASS=slideshow
+node app.js &
+sleep 30
+chromium-browser --kiosk --incognito http://localhost &
+xset -dpms # disable DPMS (Energy Star) features.
+xset s off # disable screen saver
+xset s noblank # don't blank the video device
+sleep 5
+/usr/bin/xte 'mousemove 1920 1080' #move mouse far off at bottom right of screen.

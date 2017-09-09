@@ -1,0 +1,152 @@
+<html>
+<head><title>RasPi Slideshow Frontend</title>
+<script src="/jquery-3.1.1.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+.slide{
+	height:100%;
+	width:100%;
+	position:absolute;
+	overflow:hidden;
+	opacity:0;
+	transition: opacity 1s;
+	background-color:black;
+}
+#slide0{
+	top:0;
+	left:0;
+}
+#slide1{
+	top:0;
+	left:0;
+}
+#slide2{
+	top:0;
+	left:0;
+}
+iframe {
+height:100%;
+width:100%;
+overflow:hidden;
+border:none;
+}
+.slide video {
+position:relative;
+top:50%;
+left:50%;
+transform: translate(-50%, -50%);
+}
+.slide img {
+position:relative;
+top:50%;
+left:50%;
+transform: translate(-50%, -50%);
+}
+.active {
+opacity:1;
+}
+</style>
+</head>
+<body style="margin:0;">
+<div id="slide0" class="slide active"></div>
+<div id="slide1" class="slide"></div>
+<div id="slide2" class="slide"></div>
+<script>
+//there are three slides that are rotated/revolved/etc at all times
+//once a new slide is emitted, it is loaded in the next available slide and transitions in once loaded.
+//the third remaining slide now moves into position and awaits the next emit.
+//the old slide clears out data for memory and awaits new instructions.
+var currentSlide = 0;
+var nextSlide = 1;
+var prevSlide = 2;
+
+//start with getting the very current slide since we have missed the most recent socket emit.
+$.ajax({
+	url: '/currentslide',
+	success: function (data) {
+		slideRevolver(data);
+	},
+	error: function(){
+		console.log("error in getting json at /currentlside")
+	}
+});
+
+//init socket IO to listen for new Slide emits.
+var socket = io();
+  
+socket.on('nextSlide', function(json){
+var data = JSON.parse(json)
+/*console.log(data)
+$("#slide1").empty();
+$("#slide1").append("<iframe src='" + data.content +"'></iframe>")*/
+slideRevolver(data);
+});
+
+function slideRevolver(newSlideObj)
+{
+	nextSlide = currentSlide + 1;
+	prevSlide = currentSlide - 1;
+	if(nextSlide == 3)
+	{
+		nextSlide = 0;
+	}
+	if(prevSlide == -1)
+	{
+		prevSlide = 2;
+	}
+	var slideContent;
+	//console.log(newSlideObj)
+	if(newSlideObj.content_type == "Web")
+	{
+		slideContent = document.createElement("iframe");
+		slideContent.onload = function(){transition("fade")}
+	}
+	if(newSlideObj.content_type == "Image")
+	{
+		slideContent = document.createElement("img");
+		slideContent.onload = function(){transition("fade")}
+	}
+	if(newSlideObj.content_type == "Video")
+	{
+		slideContent = document.createElement("video");
+		slideContent.autoplay = true;
+		slideContent.controls = false;
+		slideContent.onloadeddata = function(){transition("fade")}
+		
+	}
+	/*
+	if(newSlideObj.transition)
+	{
+		slideContent.onload = function(){transition(newSlideObj.transition)};
+	}
+	else
+	{
+		slideContent.onload = function(){transition("fade")}
+	}*/
+	slideContent.src = newSlideObj.content;
+	/*slideContent.onload = function(){
+		$("#slide" + currentSlide).removeClass("active");
+		$("#slide" + nextSlide).addClass("active");
+		currentSlide = nextSlide;
+		$("#slide" + prevSlide).empty();
+		};*/
+	$("#slide" + nextSlide).append(slideContent);
+	
+	
+	console.log(slideContent);
+	//$(slides[currentSlide]).empty();
+}
+function transition(type)
+{
+switch(type) {
+    case "fade":
+		$("#slide" + currentSlide).removeClass("active");
+		$("#slide" + nextSlide).addClass("active");
+        break;
+}
+		currentSlide = nextSlide;
+		$("#slide" + prevSlide).empty();
+}
+</script>
+</body>
+</html>

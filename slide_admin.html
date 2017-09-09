@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html><head>
+<title>Slide Admin</title>
+<link rel="stylesheet" type="text/css" href="/gstatic-add-ons1.css">
+
+<link rel="stylesheet" type="text/css" href="/jquery.timepicker.min.css">
+<style>
+body{
+font-size:1em;
+}
+.content{
+width:75%;
+margin-left: auto;
+margin-right: auto;
+padding:1em;
+}
+#description {
+width:100%;
+max-width:800px;
+}
+#content {
+width:100%;
+max-width:800px;
+height:35px;
+}
+.time {
+width : 100px;
+}
+#locationSelect {
+font-size:1em;
+padding-right: 3em;
+height:2em;
+}
+.upload {
+    cursor: pointer;
+	padding-left:1em;
+	padding-right:1em;
+	margin-right:1em;
+}
+#uploadFileDir {
+font-style:italic;
+}
+sub {
+font-size:x-small;
+}
+.slideListItem{
+cursor:pointer;
+}
+.slideListItem:nth-child(even){
+background-color:lightgoldenrodyellow;
+}
+.slideSortables{
+border: 1px solid black;
+}
+</style>
+<script src="/jquery-3.1.1.min.js"></script>
+<script src="/jquery.timepicker.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+</head>
+<body>
+<form enctype="multipart/form-data" id="eventForm" class="content">
+<h1>Slide Admin Page</h1>
+<hr>
+<h2>Slide Name: <input type="text" name="name" id="name"></h2>
+<h3>Duration: <input type="number" name="duration" id="duration"></h3>
+<h3>Content Type:<select name="content_type" id="content_type"><option value="Web">Online Content</option><option value="Image">Uploaded Image</option><option value="Video">Uploaded Video</option></select></h3>
+<h3>Resource Location:</h3>
+<h4><input type="text" name="content-url" id="content-url" placeholder="http://..."><span id="content-image"><input type="file" name="content-image" accept="image/*"></span><span id="content-video"><input type="file" name="content-video" accept="video/*"></span></h4>
+<div>
+
+</div>
+<input type="submit">
+</form>
+<script>
+var editing = false;
+var id = '';
+$("#content_type").on("change",function(e){
+			if($("#content_type").val() == "Web")
+			{
+				$("#content-url").css("display","block")
+				$("#content-image").css("display","none")
+				$("#content-video").css("display","none")
+			}
+			if($("#content_type").val() == "Image")
+			{
+				$("#content-url").css("display","none")
+				$("#content-image").css("display","block")
+				$("#content-video").css("display","none")
+			}	
+			if($("#content_type").val() == "Video")
+			{
+				$("#content-url").css("display","none")
+				$("#content-image").css("display","none")
+				$("#content-video").css("display","block")
+			}
+});
+if(window.location.search.substring(1))
+{
+	paramSplit = window.location.search.substring(1).split("=")
+	if(paramSplit[0] == "id")
+	{
+		editing=true;
+		id = paramSplit[1];
+		$.ajax({
+		url: "/slides/" + id,
+		success: function(res){
+			console.log(res)
+			$("#name").val(res[0].name);
+			$("#content_type").val(res[0].content_type);
+			$("#duration").val(res[0].duration);
+			if(res[0].content_type == "Web")
+			{
+				$("#content-url").css("display","block")
+				$("#content-image").css("display","none")
+				$("#content-video").css("display","none")
+				$("#content-url").val(res[0].content)
+			}
+			if(res[0].content_type == "Image")
+			{
+				$("#content-url").css("display","none")
+				$("#content-image").css("display","block")
+				$("#content-video").css("display","none")
+				$("#content-image").prepend("Current file for this slide is: " + res[0].content.originalname + "<br>Upload new file to replace. ")
+			}	
+			if(res[0].content_type == "Video")
+			{
+				$("#content-url").css("display","none")
+				$("#content-image").css("display","none")
+				$("#content-video").css("display","block")
+				$("#content-video").prepend("Current file for this slide is: " + res[0].content.originalname + "<br>Upload new file to replace. ")
+			}
+			//$("#content").val(res[0].content);
+			}
+		})
+	}
+}
+$("#eventForm").submit(function (event) {
+		
+        //disable the default form submission
+        event.preventDefault();
+        //grab all form data  
+        var formData = new FormData(document.getElementById('eventForm'))
+		console.log(formData)
+		if(editing)
+		{
+			$.ajax({
+				url: '/admin/slide/update/' + id,
+				type: 'POST',
+				data: formData,
+				async: true,
+				cache: false,
+				contentType: false,
+				processData: false,
+				success: function (data) {
+					console.log(data);
+					window.location.pathname="/admin";
+				},
+				error: function(){
+					alert("error in form submission");
+				}
+			});
+		}
+		else
+		{
+			$.ajax({
+				url: '/admin/slide/new',
+				type: 'POST',
+				data: formData,
+				async: true,
+				cache: false,
+				contentType: false,
+				processData: false,
+				success: function (data) {
+					console.log(data);
+					window.location.pathname="/admin";
+				},
+				error: function(){
+					alert("error in form submission");
+				}
+			});
+		}
+
+        return false;
+    });
+</script>
+</body>
+</html>
