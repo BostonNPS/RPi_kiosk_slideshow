@@ -52,6 +52,30 @@ background-color:lightgoldenrodyellow;
 .slideSortables{
 border: 1px solid black;
 }
+#loader{
+display:none;
+position:absolute;
+top:0;
+left:0;
+background-color: white;
+height:100%;
+width:100%;
+transition:opacity .25s;
+opacity: 0;
+}
+#loader img{
+position:fixed;
+top:45%;
+left:50%;
+transform: translate(-50%, -50%)
+}
+#notifier{
+text-align:center;
+position:fixed;
+top:60%;
+left:50%;
+transform: translate(-50%, -50%)
+}
 </style>
 <script src="/jquery-3.1.1.min.js"></script>
 <script src="/jquery.timepicker.min.js"></script>
@@ -65,12 +89,13 @@ border: 1px solid black;
 <h3>Duration: <input type="number" name="duration" id="duration"></h3>
 <h3>Content Type:<select name="content_type" id="content_type"><option value="Web">Online Content</option><option value="Image">Uploaded Image</option><option value="Video">Uploaded Video</option></select></h3>
 <h3>Resource Location:</h3>
-<h4><input type="text" name="content-url" id="content-url" placeholder="http://..."><span id="content-image"><input type="file" name="content-image" accept="image/*"></span><span id="content-video"><input type="file" name="content-video" accept="video/*"></span></h4>
+<h4><input type="text" name="content-url" id="content-url" placeholder="http://..."><span id="content-image" style="display:none;"><input type="file" name="content-image" accept="image/*"></span><span id="content-video" style="display:none;"><input type="file" name="content-video" accept="video/*"></span></h4>
 <div>
 
 </div>
 <input type="submit">
 </form>
+<div id="loader"><img src="/gif-load.gif"><h2 id="notifier">Uploading...<br><br><progress></progress></h2></div>
 <script>
 var editing = false;
 var id = '';
@@ -127,7 +152,7 @@ if(window.location.search.substring(1))
 				$("#content-url").css("display","none")
 				$("#content-image").css("display","none")
 				$("#content-video").css("display","block")
-				$("#content-video").prepend("Current file for this slide is: " + res[0].content.originalname + "<br>Upload new file to replace. ")
+				$("#content-video").prepend("Current file for this slide is: " + res[0]['content-video'].originalname + "<br>Upload new file to replace. ")
 			}
 			//$("#content").val(res[0].content);
 			}
@@ -138,6 +163,11 @@ $("#eventForm").submit(function (event) {
 		
         //disable the default form submission
         event.preventDefault();
+		
+		//show loader
+		$("#loader").css("display","block");
+		$("#loader").css("opacity","1");
+		
         //grab all form data  
         var formData = new FormData(document.getElementById('eventForm'))
 		console.log(formData)
@@ -151,6 +181,21 @@ $("#eventForm").submit(function (event) {
 				cache: false,
 				contentType: false,
 				processData: false,
+				xhr: function() {
+					var myXhr = $.ajaxSettings.xhr();
+					if (myXhr.upload) {
+						// For handling the progress of the upload
+						myXhr.upload.addEventListener('progress', function(e) {
+							if (e.lengthComputable) {
+								$('progress').attr({
+									value: e.loaded,
+									max: e.total,
+								});
+							}
+						} , false);
+					}
+					return myXhr;
+				},
 				success: function (data) {
 					console.log(data);
 					window.location.pathname="/admin";
@@ -170,6 +215,21 @@ $("#eventForm").submit(function (event) {
 				cache: false,
 				contentType: false,
 				processData: false,
+				xhr: function() {
+					var myXhr = $.ajaxSettings.xhr();
+					if (myXhr.upload) {
+						// For handling the progress of the upload
+						myXhr.upload.addEventListener('progress', function(e) {
+							if (e.lengthComputable) {
+								$('progress').attr({
+									value: e.loaded,
+									max: e.total,
+								});
+							}
+						} , false);
+					}
+					return myXhr;
+				},
 				success: function (data) {
 					console.log(data);
 					window.location.pathname="/admin";

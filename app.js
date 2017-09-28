@@ -220,12 +220,18 @@
 					submitObj.content = req.body['content-url'];
 					break;
 				case "Image":
-					submitObj.content = req.files['content-image'][0].path;
-					submitObj['content-image'] = req.files['content-image'][0];
+					if(req.files['content-image'])
+					{
+						submitObj.content = req.files['content-image'][0].path;
+						submitObj['content-image'] = req.files['content-image'][0];
+					}
 					break;
 				case "Video":
-					submitObj.content = req.files['content-video'][0].path;
-					submitObj['content-video'] = req.files['content-video'][0];
+					if(req.files['content-video'])
+					{
+						submitObj.content = req.files['content-video'][0].path;
+						submitObj['content-video'] = req.files['content-video'][0];
+					}
 					break;
 			}
 			edit(req.params.id,submitObj,"slides",function(results){res.sendStatus(200)})
