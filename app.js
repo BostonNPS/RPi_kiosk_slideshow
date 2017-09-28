@@ -321,6 +321,7 @@
 			}
 			else //otherwise continue as normal.
 			{
+				CURRENT_SCHEDULE_DOCUMENT = calc_sched_doc;//rewrite schedule document in case slide order has changed/been edited.
 				if(SLIDE_TIMER > 0)
 				{
 					SLIDE_TIMER--;

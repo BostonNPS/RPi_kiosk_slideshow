@@ -45,12 +45,23 @@ transform: translate(-50%, -50%);
 .active {
 opacity:1;
 }
+#loaderthing {
+position:absolute;
+bottom:0;
+left:0;
+width:0%;
+height:2em;
+background-color:lightred;
+background: linear-gradient(to right, rgba(240, 10, 10, 0.25) , rgba(240,10,10,.75));
+z-index:100;
+}
 </style>
 </head>
 <body style="margin:0;">
 <div id="slide0" class="slide active"></div>
 <div id="slide1" class="slide"></div>
 <div id="slide2" class="slide"></div>
+<div id="loaderthing"></div>
 <script>
 //there are three slides that are rotated/revolved/etc at all times
 //once a new slide is emitted, it is loaded in the next available slide and transitions in once loaded.
@@ -67,7 +78,7 @@ $.ajax({
 		slideRevolver(data);
 	},
 	error: function(){
-		console.log("error in getting json at /currentlside")
+		console.log("error in getting json at /currentslide")
 	}
 });
 
@@ -76,14 +87,15 @@ var socket = io();
   
 socket.on('nextSlide', function(json){
 var data = JSON.parse(json)
-/*console.log(data)
-$("#slide1").empty();
-$("#slide1").append("<iframe src='" + data.content +"'></iframe>")*/
+$("#loaderthing").css("transition","0s");
+//$("#loaderthing").css("left","100%");
+$("#loaderthing").css("width","0%");
 slideRevolver(data);
 });
 
 function slideRevolver(newSlideObj)
 {
+
 	nextSlide = currentSlide + 1;
 	prevSlide = currentSlide - 1;
 	if(nextSlide == 3)
@@ -99,19 +111,19 @@ function slideRevolver(newSlideObj)
 	if(newSlideObj.content_type == "Web")
 	{
 		slideContent = document.createElement("iframe");
-		slideContent.onload = function(){transition("fade")}
+		slideContent.onload = function(){transition("fade",newSlideObj.duration)}
 	}
 	if(newSlideObj.content_type == "Image")
 	{
 		slideContent = document.createElement("img");
-		slideContent.onload = function(){transition("fade")}
+		slideContent.onload = function(){transition("fade",newSlideObj.duration)}
 	}
 	if(newSlideObj.content_type == "Video")
 	{
 		slideContent = document.createElement("video");
 		slideContent.autoplay = true;
 		slideContent.controls = false;
-		slideContent.onloadeddata = function(){transition("fade")}
+		slideContent.onloadeddata = function(){transition("fade",newSlideObj.duration)}
 		
 	}
 	/*
@@ -131,12 +143,12 @@ function slideRevolver(newSlideObj)
 		$("#slide" + prevSlide).empty();
 		};*/
 	$("#slide" + nextSlide).append(slideContent);
+
 	
-	
-	console.log(slideContent);
+	console.log(newSlideObj);
 	//$(slides[currentSlide]).empty();
 }
-function transition(type)
+function transition(type,duration)
 {
 switch(type) {
     case "fade":
@@ -146,6 +158,9 @@ switch(type) {
 }
 		currentSlide = nextSlide;
 		$("#slide" + prevSlide).empty();
+		$("#loaderthing").css("left","0");
+			$("#loaderthing").css("transition","width " + duration + "s linear")
+	$("#loaderthing").css("width","100%");
 }
 </script>
 </body>
